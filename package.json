@@ -5,8 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "build": "pip install -r requirements.txt || echo 'pip not available, skipping TTS'"
+    "dev": "node --watch server.js"
   },
   "keywords": [
     "music",
