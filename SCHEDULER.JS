@@ -48,14 +48,14 @@ function broadcast(type, payload) {
   if (broadcastFn) broadcastFn(type, payload);
 }
 
-async function speakAndBroadcast(message, action = 'briefing') {
+async function speakAndBroadcast(message, action = 'briefing', voice) {
   // Broadcast text first
   broadcast('schedule.alert', { message, time: now(), action });
 
-  // Try TTS
+  // Try TTS with scene-specific voice
   try {
     const tts = require('./VOICE/tts');
-    const audioPath = await tts.synthesize(message);
+    const audioPath = await tts.synthesize(message, voice);
     if (audioPath) {
       const audioUrl = tts.getAudioUrl(audioPath);
       broadcast('tts.play', { audioUrl, text: message });
@@ -81,7 +81,7 @@ async function morningPlan() {
   const sessionId = db.createSession();
   db.saveMessage(sessionId, 'assistant', msg);
 
-  speakAndBroadcast(msg, 'morning_plan');
+  speakAndBroadcast(msg, 'morning_plan', process.env.TTS_VOICE_BRIEFING || 'zh-CN-YunyangNeural');
 
   // Also push a music recommendation
   try {
@@ -133,7 +133,7 @@ async function morningBriefing() {
     if (result && result.message) {
       const sessionId = db.createSession();
       db.saveMessage(sessionId, 'assistant', result.message);
-      speakAndBroadcast(result.message, 'briefing');
+      speakAndBroadcast(result.message, 'briefing', process.env.TTS_VOICE_BRIEFING || 'zh-CN-YunyangNeural');
       return;
     }
   } catch (_) {}

@@ -62,6 +62,15 @@ const App = {
     document.getElementById('setting-voice').addEventListener('change', (e) => {
       Chat.setVoice(e.target.value);
     });
+
+    // Edge TTS voice selector
+    var edgeSelect = document.getElementById('setting-edge-voice');
+    var savedEdge = localStorage.getItem('edge_voice') || 'zh-CN-YunxiNeural';
+    edgeSelect.value = savedEdge;
+    edgeSelect.addEventListener('change', function(e) {
+      localStorage.setItem('edge_voice', e.target.value);
+      Toast.success('DJ 音色已切换');
+    });
     document.getElementById('voice-preview').addEventListener('click', () => {
       this.previewVoice();
     });

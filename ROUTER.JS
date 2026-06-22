@@ -337,7 +337,8 @@ async function handleWs(ws, type, payload) {
       ws.send(JSON.stringify({ type: 'chat.reply', payload: result }));
       // Synthesize TTS in background, send when ready
       if (result?.reply) {
-        synthesizeAndSend(ws, result.reply);
+        const voice = payload.edgeVoice || process.env.TTS_VOICE_CHAT || 'zh-CN-YunxiNeural';
+        synthesizeAndSend(ws, result.reply, voice);
       }
       break;
 
@@ -352,9 +353,10 @@ async function handleWs(ws, type, payload) {
 }
 
 // Synthesize TTS and send audio URL to client when ready
-function synthesizeAndSend(ws, text) {
+function synthesizeAndSend(ws, text, voice) {
   const tts = require('./VOICE/tts');
-  tts.synthesize(text).then(audioPath => {
+  const v = voice || process.env.TTS_VOICE_CHAT || 'zh-CN-YunxiNeural';
+  tts.synthesize(text, v).then(audioPath => {
     if (audioPath && ws.readyState === 1) {
       const audioUrl = tts.getAudioUrl(audioPath);
       ws.send(JSON.stringify({ type: 'tts.play', payload: { text, audioUrl } }));

@@ -168,10 +168,12 @@ const Chat = {
     this.showTyping();
     input.value = '';
 
+    const edgeVoice = localStorage.getItem('edge_voice') || '';
+
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'chat',
-        payload: { message: text, sessionId: this.sessionId },
+        payload: { message: text, sessionId: this.sessionId, edgeVoice: edgeVoice },
       }));
     } else {
       // Fallback to HTTP
