@@ -1,0 +1,12 @@
+node_modules/
+.env
+tts/*.mp3
+tts/*.wav
+claudio.db
+claudio.db-shm
+claudio.db-wal
+*.log
+.DS_Store
+natapp*
+start.bat
+__pycache__/

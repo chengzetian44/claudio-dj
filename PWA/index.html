@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6c5ce7">
+  <title>Claudio DJ — 私人音乐电台</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/icon.svg">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Particle Background -->
+  <canvas id="particles-canvas"></canvas>
+
+  <!-- App Container -->
+  <div id="app-container">
+
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <div class="logo">Claudio DJ</div>
+      <ul class="nav-items">
+        <li class="nav-item active" data-view="player">
+          <span class="nav-icon">&#9835;</span>
+          <span class="nav-label">播放器</span>
+        </li>
+        <li class="nav-item" data-view="profile">
+          <span class="nav-icon">&#9679;</span>
+          <span class="nav-label">个人资料</span>
+        </li>
+        <li class="nav-item" data-view="settings">
+          <span class="nav-icon">&#9881;</span>
+          <span class="nav-label">设置</span>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <button id="theme-toggle" class="theme-btn" title="切换日间/夜间模式">
+          <span class="theme-icon-dark">&#9790;</span>
+          <span class="theme-icon-light">&#9728;</span>
+        </button>
+        <button id="chat-toggle" class="chat-toggle-btn" title="打开对话">
+          <span class="chat-toggle-icon">&#128172;</span>
+        </button>
+        <div id="date-display" class="date-text"></div>
+      </div>
+    </nav>
+
+    <!-- Chat overlay (mobile) -->
+    <div id="chat-overlay"></div>
+
+    <!-- Main Content -->
+    <main id="main-content">
+
+      <!-- Player View -->
+      <section id="view-player" class="view active">
+        <div class="player-container">
+          <div class="cover-art" id="cover-art">
+            <div class="cover-placeholder">&#9835;</div>
+          </div>
+          <div class="track-info">
+            <h2 id="track-title">准备就绪</h2>
+            <p id="track-artist">Claudio DJ 为你守候</p>
+            <div class="track-actions">
+              <button id="btn-like" class="action-btn" title="喜欢">&#9825;</button>
+              <button id="btn-skip" class="action-btn" title="跳过">&#10007;</button>
+            </div>
+          </div>
+          <div class="player-controls">
+            <button id="btn-prev" class="ctrl-btn" title="上一首">&#9664;&#9664;</button>
+            <button id="btn-play" class="ctrl-btn ctrl-play" title="播放">&#9654;</button>
+            <button id="btn-next" class="ctrl-btn" title="下一首">&#9654;&#9654;</button>
+          </div>
+          <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="time-display">
+            <span id="time-current">00:00</span>
+            <span id="time-total">00:00</span>
+          </div>
+          <div class="volume-control">
+            <span class="volume-icon">&#128266;</span>
+            <input type="range" id="volume-slider" min="0" max="100" value="70" class="volume-slider">
+          </div>
+          <div id="lyric-display" class="lyric-display">
+            <p class="lyric-line">歌词加载中...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Profile View -->
+      <section id="view-profile" class="view">
+        <div class="profile-container">
+          <h3>我的音乐品味</h3>
+          <div id="taste-content" class="taste-display">
+            <p>加载中...</p>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-num" id="stat-total">0</span>
+              <span class="stat-label">播放次数</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-num" id="stat-today">0</span>
+              <span class="stat-label">今日播放</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings View -->
+      <section id="view-settings" class="view">
+        <div class="settings-container">
+          <h3>设置</h3>
+          <div class="setting-group">
+            <label class="setting-label">日间模式</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-theme">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-group">
+            <label class="setting-label">自动播放下一首</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-autoplay" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-group">
+            <label class="setting-label">粒子数量</label>
+            <input type="range" id="setting-particles" min="20" max="150" value="60" class="setting-range">
+          </div>
+          <div class="setting-group">
+            <label class="setting-label">语音音色</label>
+            <div class="voice-row">
+              <select id="setting-voice" class="setting-select">
+                <option value="">系统默认</option>
+              </select>
+              <button id="voice-preview" class="voice-preview-btn">试听</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Chat Panel -->
+    <aside id="chat-panel">
+      <div class="chat-header">
+        <span>Claudio DJ</span>
+        <div class="chat-header-actions">
+          <button id="chat-new" class="chat-new-btn" title="新建会话">+</button>
+          <button id="chat-close" class="chat-close-btn" title="关闭">&#10005;</button>
+        </div>
+      </div>
+      <div id="chat-messages" class="chat-messages">
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="输入消息..." autocomplete="off">
+        <button id="chat-send" class="chat-send-btn">发送</button>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Global Audio Element -->
+  <audio id="audio-element" preload="none"></audio>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/toast.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- PWA Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(function() {});
+    }
+  </script>
+</body>
+</html>

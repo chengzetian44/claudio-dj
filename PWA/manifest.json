@@ -1,0 +1,18 @@
+{
+  "name": "Claudio DJ — 私人音乐电台",
+  "short_name": "Claudio DJ",
+  "description": "AI 驱动的私人音乐电台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a1a",
+  "theme_color": "#6c5ce7",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
