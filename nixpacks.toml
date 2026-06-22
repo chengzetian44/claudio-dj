@@ -1,5 +1,5 @@
 [phases.setup]
-nixPackages = ["python3", "python3-pip"]
+aptPackages = ["python3", "python3-pip", "python3-setuptools"]
 
 [phases.install]
 cmds = [
