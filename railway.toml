@@ -1,0 +1,9 @@
+[build]
+  builder = "nixpacks"
+
+  [build.nixpacks]
+    # Force Node.js as primary language
+    providers = ["node"]
+
+    [build.nixpacks.apt]
+      packages = ["python3", "python3-pip"]
