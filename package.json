@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "build": "pip install -r requirements.txt || echo 'pip not available, skipping TTS'"
   },
   "keywords": [
     "music",
@@ -16,11 +17,11 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
-    "better-sqlite3": "^12.10.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "NeteaseCloudMusicApi": "^4.32.0",
     "node-cron": "^4.2.1",
+    "sql.js": "^1.14.1",
     "ws": "^8.20.1"
   }
 }
