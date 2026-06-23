@@ -119,10 +119,14 @@ const Chat = {
       return;
     }
 
-    // Server-generated audio (works on mobile!) — play via Audio element
+    // Server-generated TTS audio — reuse persistent element (unlocked with music)
     if (audioUrl) {
-      var audio = new Audio(audioUrl);
-      audio.play().catch(function() {});
+      var tts = Player.ttsAudio;
+      if (tts) {
+        tts.src = audioUrl;
+        tts.load();
+        tts.play().catch(function() {});
+      }
       // Still play the track after a short delay
       if (track) {
         setTimeout(function() { Player.load(track); }, 1200);

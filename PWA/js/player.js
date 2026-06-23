@@ -10,9 +10,12 @@ const Player = {
   audioUnlocked: false,
   pendingPlayTrack: null,  // track waiting for user gesture to play
   playPending: false,       // track loaded but not yet played (mobile: wait for tap)
+  hasEverPlayed: false,     // once true, auto-play is allowed on mobile
+  ttsAudio: null,           // persistent TTS audio element
 
   init() {
     this.audio = document.getElementById('audio-element');
+    this.ttsAudio = document.getElementById('tts-audio');
 
     // ── Mobile Audio Unlock ──────────────────────────
     // Mobile browsers block audio.play() unless triggered by user gesture.
@@ -143,10 +146,10 @@ const Player = {
       navigator.mediaSession.metadata = new MediaMetadata(meta);
     }
 
-    // Desktop: auto-play is safe (no autoplay restriction).
-    // Mobile: set playPending — user taps ▶ to play in a user-gesture context.
+    // Mobile: first play needs user gesture. Once hasEverPlayed is set,
+    // the <audio> element is trusted and auto-play works for subsequent tracks.
     var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (isMobile) {
+    if (isMobile && !this.hasEverPlayed) {
       this.playPending = true;
       document.getElementById('btn-play').innerHTML = '&#9654;';
     } else {
@@ -262,16 +265,19 @@ const Player = {
   },
 
   play() {
+    var self = this;
     const promise = this.audio.play();
     if (promise) {
-      promise.catch((err) => {
+      promise.then(function() {
+        self.hasEverPlayed = true;  // audio element now trusted on mobile
+      }).catch((err) => {
         console.warn('[player] play() rejected:', err.name);
-        this.isPlaying = false;
+        self.isPlaying = false;
         document.getElementById('btn-play').innerHTML = '&#9654;';
         // On mobile, autoplay blocks if not from user gesture.
         // Store this track so we retry on next user tap.
         if (err.name === 'NotAllowedError') {
-          this.pendingPlayTrack = this.currentTrack;
+          self.pendingPlayTrack = self.currentTrack;
           Toast.error('轻触播放按钮开始播放');
         } else {
           Toast.error('播放失败，请尝试其他歌曲');
@@ -292,6 +298,8 @@ const Player = {
     // Mobile: playPending means track is loaded but waiting for user tap
     if (this.playPending) {
       this.playPending = false;
+      // Bless the TTS audio element too (same user gesture)
+      this.blessTtsAudio();
       this.play();
       return;
     }
@@ -303,6 +311,20 @@ const Player = {
       return;
     }
     this.isPlaying ? this.pause() : this.play();
+  },
+
+  // Bless the TTS audio element with a silent play (unlocks it for later use)
+  blessTtsAudio() {
+    if (!this.ttsAudio) return;
+    try {
+      this.ttsAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      this.ttsAudio.play().then(() => {
+        this.ttsAudio.pause();
+        this.ttsAudio.removeAttribute('src');
+      }).catch(() => {
+        this.ttsAudio.removeAttribute('src');
+      });
+    } catch(e) { /* ignore */ }
   },
 
   enqueue(tracks) {

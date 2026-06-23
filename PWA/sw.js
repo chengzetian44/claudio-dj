@@ -1,5 +1,5 @@
 // Claudio DJ Service Worker — offline-first PWA
-const CACHE_NAME = 'claudio-dj-v5';
+const CACHE_NAME = 'claudio-dj-v6';
 const STATIC_ASSETS = [
   '/',
   '/css/style.css',
