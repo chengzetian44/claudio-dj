@@ -9,6 +9,7 @@ const Player = {
   queue: [],        // upcoming tracks
   audioUnlocked: false,
   pendingPlayTrack: null,  // track waiting for user gesture to play
+  playPending: false,       // track loaded but not yet played (mobile: wait for tap)
 
   init() {
     this.audio = document.getElementById('audio-element');
@@ -40,12 +41,6 @@ const Player = {
         }
       } catch(e) { /* ignore */ }
 
-      // Flush any pending play request now that user has interacted
-      if (this.pendingPlayTrack) {
-        var t = this.pendingPlayTrack;
-        this.pendingPlayTrack = null;
-        this.load(t);
-      }
     };
     document.addEventListener('click', unlockHandler, { once: true });
     document.addEventListener('touchend', unlockHandler, { once: true });
@@ -148,7 +143,15 @@ const Player = {
       navigator.mediaSession.metadata = new MediaMetadata(meta);
     }
 
-    this.play();
+    // Desktop: auto-play is safe (no autoplay restriction).
+    // Mobile: set playPending — user taps ▶ to play in a user-gesture context.
+    var isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (isMobile) {
+      this.playPending = true;
+      document.getElementById('btn-play').innerHTML = '&#9654;';
+    } else {
+      this.play();
+    }
   },
 
   async like() {
@@ -286,7 +289,13 @@ const Player = {
   },
 
   toggle() {
-    // If there's a pending track waiting on user gesture, play it now
+    // Mobile: playPending means track is loaded but waiting for user tap
+    if (this.playPending) {
+      this.playPending = false;
+      this.play();
+      return;
+    }
+    // If a previous play() was blocked, retry on this user gesture
     if (!this.isPlaying && this.pendingPlayTrack) {
       const t = this.pendingPlayTrack;
       this.pendingPlayTrack = null;
