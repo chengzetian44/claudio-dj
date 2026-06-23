@@ -1,5 +1,5 @@
 // Claudio DJ Service Worker — offline-first PWA
-const CACHE_NAME = 'claudio-dj-v2';
+const CACHE_NAME = 'claudio-dj-v3';
 const STATIC_ASSETS = [
   '/',
   '/css/style.css',
@@ -43,6 +43,14 @@ self.addEventListener('fetch', (event) => {
 
   // API requests — network only, no caching
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/stream')) {
+    return;
+  }
+
+  // Audio/media requests — let browser handle directly (no SW caching)
+  // This prevents SW from intercepting streaming audio which breaks mobile playback
+  if (event.request.destination === 'audio' ||
+      /\.(mp3|m4a|aac|ogg|wav|flac|opus)(\?|$)/i.test(url.pathname) ||
+      /music\.(126|163)\.net/i.test(url.hostname)) {
     return;
   }
 

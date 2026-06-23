@@ -7,9 +7,71 @@ const Player = {
   lyrics: [],
   playHistory: [],  // stack for prev() — max 20
   queue: [],        // upcoming tracks
+  audioUnlocked: false,
+  pendingPlayTrack: null,  // track waiting for user gesture to play
 
   init() {
     this.audio = document.getElementById('audio-element');
+
+    // ── Mobile Audio Unlock ──────────────────────────
+    // Mobile browsers block audio.play() unless triggered by user gesture.
+    // We unlock on the FIRST user interaction anywhere on the document.
+    const unlockAudio = () => {
+      if (this.audioUnlocked) return;
+      console.log('[player] attempting audio unlock...');
+
+      // Method 1: Resume AudioContext (most reliable mobile unlock)
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          if (ctx.state === 'suspended') {
+            ctx.resume().then(() => {
+              console.log('[player] AudioContext resumed');
+              ctx.close();
+            }).catch(() => {});
+          }
+        }
+      } catch (e) { /* ignore */ }
+
+      // Method 2: Play silent audio through the player element
+      const origSrc = this.audio.src;
+      this.audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      this.audio.load();
+      const p = this.audio.play();
+      const finish = () => {
+        this.audioUnlocked = true;
+        this.audio.pause();
+        this.audio.currentTime = 0;
+        if (origSrc && !origSrc.startsWith('data:audio/wav;base64,')) {
+          this.audio.src = origSrc;
+        } else {
+          this.audio.removeAttribute('src');
+        }
+        // If there's a pending track, play it now
+        if (this.pendingPlayTrack) {
+          const t = this.pendingPlayTrack;
+          this.pendingPlayTrack = null;
+          this.load(t);
+        }
+      };
+      if (p) {
+        p.then(finish).catch(() => {
+          // Play failed but AudioContext unlock may still help
+          this.audioUnlocked = true;
+          if (origSrc && !origSrc.startsWith('data:audio/wav;base64,')) {
+            this.audio.src = origSrc;
+          } else {
+            this.audio.removeAttribute('src');
+          }
+        });
+      } else {
+        finish();
+      }
+    };
+    // Listen for first user interaction to unlock audio
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('touchend', unlockAudio, { once: true });
 
     document.getElementById('btn-play').addEventListener('click', () => this.toggle());
     document.getElementById('btn-next').addEventListener('click', () => this.next());
@@ -221,7 +283,21 @@ const Player = {
 
   play() {
     const promise = this.audio.play();
-    if (promise) promise.catch(() => { Toast.error('播放被浏览器阻止，请先与页面互动'); });
+    if (promise) {
+      promise.catch((err) => {
+        console.warn('[player] play() rejected:', err.name);
+        this.isPlaying = false;
+        document.getElementById('btn-play').innerHTML = '&#9654;';
+        // On mobile, autoplay blocks if not from user gesture.
+        // Store this track so we retry on next user tap.
+        if (err.name === 'NotAllowedError') {
+          this.pendingPlayTrack = this.currentTrack;
+          Toast.error('轻触播放按钮开始播放');
+        } else {
+          Toast.error('播放失败，请尝试其他歌曲');
+        }
+      });
+    }
     this.isPlaying = true;
     document.getElementById('btn-play').innerHTML = '&#9646;&#9646;';
   },
@@ -233,6 +309,13 @@ const Player = {
   },
 
   toggle() {
+    // If there's a pending track waiting on user gesture, play it now
+    if (!this.isPlaying && this.pendingPlayTrack) {
+      const t = this.pendingPlayTrack;
+      this.pendingPlayTrack = null;
+      this.load(t);
+      return;
+    }
     this.isPlaying ? this.pause() : this.play();
   },
 
