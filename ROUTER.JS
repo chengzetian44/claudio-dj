@@ -84,6 +84,25 @@ function classifyIntent(text) {
   return INTENTS.CHAT;
 }
 
+// ─── Quantity Extraction ────────────────────────────
+
+function extractCount(message) {
+  const t = message || '';
+  // Chinese numerals: 一→1, 两→2, 三→3, 四→4, 五→5, 六→6, 七→7, 八→8, 九→9, 十→10
+  const chineseDigits = { '一':1,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10 };
+  // Pattern: "N首" / "N个" / "N首歌" (both Arabic and Chinese)
+  const m1 = t.match(/(\d+)\s*[首个]/);
+  if (m1) return Math.min(parseInt(m1[1]), 20);
+  const m2 = t.match(/([一两三四五六七八九十])\s*[首个]/);
+  if (m2) return Math.min(chineseDigits[m2[1]] || 5, 20);
+  // "几首" / "来几首" → default 5
+  if (/几[首个]/.test(t)) return 5;
+  // "十首" (bare 十)
+  if (/十[首个]/.test(t)) return 10;
+  // "来点" / "推荐" without number → default 5
+  return 5;
+}
+
 // ─── Chat Handler ────────────────────────────────────
 
 async function handleChat(body) {
@@ -94,19 +113,20 @@ async function handleChat(body) {
   db.saveMessage(sid, 'user', message);
 
   const intent = classifyIntent(message);
+  const count = extractCount(message);
 
   switch (intent) {
     case INTENTS.PLAY:
       return handlePlayIntent(message, sid);
 
     case INTENTS.RECOMMEND:
-      return handleRecommendWithFallback(message, sid);
+      return handleRecommendWithFallback(message, sid, count);
 
     case INTENTS.QUERY:
       return handleQueryIntent(message, sid);
 
     default:
-      return handleAIChat(message, sid);
+      return handleAIChat(message, sid, count);
   }
 }
 
@@ -126,7 +146,7 @@ async function handlePlayIntent(message, sessionId) {
   return { reply: '抱歉，没有找到这首歌。试试换个关键词？', action: 'none' };
 }
 
-async function handleRecommendWithFallback(message, sessionId) {
+async function handleRecommendWithFallback(message, sessionId, count = 5) {
   // Try AI first — it gives more personalized recommendations
   try {
     const brain = getBrain();
@@ -139,7 +159,7 @@ async function handleRecommendWithFallback(message, sessionId) {
       // If AI wants to recommend, search for matching tracks
       if (result.action === 'recommend' && result.data?.style) {
         const music = getMusic();
-        let tracks = await searchWithFallback(result.data.style, 3);
+        let tracks = await searchWithFallback(result.data.style, count);
         if (tracks && tracks.length > 0) {
           // Resolve ALL tracks' URLs in parallel
           await Promise.all(tracks.map(async (t) => {
@@ -182,10 +202,10 @@ async function handleRecommendWithFallback(message, sessionId) {
   }
 
   // Fallback to local recommendation (no AI needed)
-  return handleRecommendIntent(message, sessionId);
+  return handleRecommendIntent(message, sessionId, count);
 }
 
-async function handleRecommendIntent(message, sessionId) {
+async function handleRecommendIntent(message, sessionId, count = 5) {
   const music = getMusic();
   const db = getDb();
   const recent = db.recentlyPlayed();
@@ -194,9 +214,9 @@ async function handleRecommendIntent(message, sessionId) {
   const tracks = await music.recommend(tasteHint);
 
   if (tracks && tracks.length > 0) {
-    // Take top 3, avoid recently played
-    const picks = tracks.filter(t => !recent.includes(String(t.id))).slice(0, 3);
-    const selected = picks.length > 0 ? picks : tracks.slice(0, 3);
+    // Take requested count, avoid recently played
+    const picks = tracks.filter(t => !recent.includes(String(t.id))).slice(0, count);
+    const selected = picks.length > 0 ? picks : tracks.slice(0, count);
 
     // Resolve ALL selected tracks' URLs
     await Promise.all(selected.map(async (t) => {
@@ -229,7 +249,7 @@ async function handleQueryIntent(message, sessionId) {
   };
 }
 
-async function handleAIChat(message, sessionId) {
+async function handleAIChat(message, sessionId, count = 5) {
   const brain = getBrain();
   const db = getDb();
 
@@ -267,7 +287,7 @@ async function handleAIChat(message, sessionId) {
     // If AI wants to recommend, search for matching tracks
     if (result.action === 'recommend' && result.data?.style) {
       const music = getMusic();
-      let tracks = await searchWithFallback(result.data.style, 3);
+      let tracks = await searchWithFallback(result.data.style, count);
       if (tracks && tracks.length > 0) {
         // Resolve ALL tracks' URLs in parallel
         await Promise.all(tracks.map(async (t) => {

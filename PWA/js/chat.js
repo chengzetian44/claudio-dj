@@ -82,8 +82,8 @@ const Chat = {
           this.hideTyping();
           const text = payload.reply || payload.message;
           this.addMessage('assistant', text);
-          // Speak the reply, then play song if there's a track
-          this.speakThenPlay(text, payload);
+          // Queue tracks now, defer first track until TTS audio arrives
+          this.handleReplyPayload(payload);
         } else if (type === 'track.change' && payload?.track) {
           Player.load(payload.track);
         } else if (type === 'schedule.alert') {
@@ -101,25 +101,55 @@ const Chat = {
     };
   },
 
-  // Speak text via browser TTS or server-generated audio, then optionally play a track
-  speakThenPlay(text, payload) {
-    const track = payload.data?.track;
-    const tracks = payload.data?.tracks;
-    const audioUrl = payload.audioUrl;
+  // Queue tracks and show list from chat.reply payload; defer first track play
+  handleReplyPayload(payload) {
+    var tracks = payload.data?.tracks;
+    var track = payload.data?.track;
 
-    // Enqueue all but the first track (first plays immediately)
+    // Enqueue tracks 2..N (track 1 plays separately)
     if (tracks && tracks.length > 1) {
       Player.enqueue(tracks.slice(1));
       this.showTrackList(tracks);
     }
 
-    // If no text to speak but there's a track, play it directly
+    // Store first track — tts.play will pick it up and play after voice
+    this._pendingTrack = track || null;
+    if (this._trackTimer) clearTimeout(this._trackTimer);
+
+    // Fallback: if tts.play never arrives (TTS failed), play track after 5s
+    if (track) {
+      var self = this;
+      this._trackTimer = setTimeout(function() {
+        if (self._pendingTrack) {
+          Player.load(self._pendingTrack);
+          self._pendingTrack = null;
+        }
+      }, 5000);
+    }
+  },
+
+  // Speak text via server-generated TTS audio, then play pending track
+  speakThenPlay(text, payload) {
+    var track = payload.data?.track || this._pendingTrack;
+    var tracks = payload.data?.tracks;
+    var audioUrl = payload.audioUrl;
+
+    // Clear fallback timer since we got here (tts.play arrived)
+    if (this._trackTimer) { clearTimeout(this._trackTimer); this._trackTimer = null; }
+
+    // Enqueue if track list present (schedule.alert may have tracks)
+    if (tracks && tracks.length > 1) {
+      Player.enqueue(tracks.slice(1));
+      this.showTrackList(tracks);
+    }
+
+    // No text — play track directly
     if (!text) {
-      if (track) Player.load(track);
+      if (track) { this._pendingTrack = null; Player.load(track); }
       return;
     }
 
-    // Server-generated TTS audio — reuse persistent element (unlocked with music)
+    // Server TTS audio — use persistent element (blessed with music on first tap)
     if (audioUrl) {
       var tts = Player.ttsAudio;
       if (tts) {
@@ -127,35 +157,18 @@ const Chat = {
         tts.load();
         tts.play().catch(function() {});
       }
-      // Still play the track after a short delay
       if (track) {
-        setTimeout(function() { Player.load(track); }, 1200);
+        this._pendingTrack = null;
+        setTimeout(function() { Player.load(track); }, 1500);
       }
       return;
     }
 
-    // Fallback: browser speechSynthesis (desktop only, unreliable on mobile)
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'zh-CN';
-    u.rate = 1.1;
-    u.pitch = 1.0;
-    u.volume = 0.8;
-
-    // Use user's selected voice if available
-    if (this.voiceName) {
-      const voices = window.speechSynthesis.getVoices();
-      const match = voices.find(v => v.name === this.voiceName);
-      if (match) u.voice = match;
-    }
-
-    // Start playing immediately — don't wait for TTS to finish
+    // No audio URL — TTS unavailable, just play track
     if (track) {
-      // Small delay so voice has a moment to start before music
-      setTimeout(() => Player.load(track), 800);
+      this._pendingTrack = null;
+      Player.load(track);
     }
-
-    window.speechSynthesis.speak(u);
   },
 
   setVoice(name) {
@@ -190,7 +203,7 @@ const Chat = {
         .then(data => {
           this.hideTyping();
           this.addMessage('assistant', data.reply || data.message);
-          // Enqueue multi-track recommendations
+          // HTTP fallback: no TTS, play track directly
           if (data.data?.tracks && data.data.tracks.length > 1) {
             Player.enqueue(data.data.tracks.slice(1));
             this.showTrackList(data.data.tracks);
