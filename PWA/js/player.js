@@ -15,63 +15,40 @@ const Player = {
 
     // ── Mobile Audio Unlock ──────────────────────────
     // Mobile browsers block audio.play() unless triggered by user gesture.
-    // We unlock on the FIRST user interaction anywhere on the document.
-    const unlockAudio = () => {
+    // We unlock the audio subsystem on the first touch/click using Web Audio API —
+    // the standard, battle-tested approach that doesn't interfere with <audio> src.
+    var unlockHandler = () => {
       if (this.audioUnlocked) return;
-      console.log('[player] attempting audio unlock...');
+      console.log('[player] attempting audio unlock via AudioContext...');
+      this.audioUnlocked = true;
 
-      // Method 1: Resume AudioContext (most reliable mobile unlock)
       try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) {
-          const ctx = new AudioCtx();
-          if (ctx.state === 'suspended') {
-            ctx.resume().then(() => {
-              console.log('[player] AudioContext resumed');
-              ctx.close();
-            }).catch(() => {});
-          }
+          var ctx = new AudioCtx();
+          // Resume the context (brings audio system out of suspended state)
+          ctx.resume().then(function() {
+            // Play a silent buffer to fully wake the audio pipeline
+            var buf = ctx.createBuffer(1, 1, 22050);
+            var src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(ctx.destination);
+            src.start(0);
+            src.onended = function() { ctx.close(); };
+            console.log('[player] audio subsystem unlocked');
+          }).catch(function() {});
         }
-      } catch (e) { /* ignore */ }
+      } catch(e) { /* ignore */ }
 
-      // Method 2: Play silent audio through the player element
-      const origSrc = this.audio.src;
-      this.audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-      this.audio.load();
-      const p = this.audio.play();
-      const finish = () => {
-        this.audioUnlocked = true;
-        this.audio.pause();
-        this.audio.currentTime = 0;
-        if (origSrc && !origSrc.startsWith('data:audio/wav;base64,')) {
-          this.audio.src = origSrc;
-        } else {
-          this.audio.removeAttribute('src');
-        }
-        // If there's a pending track, play it now
-        if (this.pendingPlayTrack) {
-          const t = this.pendingPlayTrack;
-          this.pendingPlayTrack = null;
-          this.load(t);
-        }
-      };
-      if (p) {
-        p.then(finish).catch(() => {
-          // Play failed but AudioContext unlock may still help
-          this.audioUnlocked = true;
-          if (origSrc && !origSrc.startsWith('data:audio/wav;base64,')) {
-            this.audio.src = origSrc;
-          } else {
-            this.audio.removeAttribute('src');
-          }
-        });
-      } else {
-        finish();
+      // Flush any pending play request now that user has interacted
+      if (this.pendingPlayTrack) {
+        var t = this.pendingPlayTrack;
+        this.pendingPlayTrack = null;
+        this.load(t);
       }
     };
-    // Listen for first user interaction to unlock audio
-    document.addEventListener('click', unlockAudio, { once: true });
-    document.addEventListener('touchend', unlockAudio, { once: true });
+    document.addEventListener('click', unlockHandler, { once: true });
+    document.addEventListener('touchend', unlockHandler, { once: true });
 
     document.getElementById('btn-play').addEventListener('click', () => this.toggle());
     document.getElementById('btn-next').addEventListener('click', () => this.next());
